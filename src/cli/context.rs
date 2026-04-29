@@ -212,18 +212,8 @@ fn read_wayland_clipboard() -> Option<Vec<u8>> {
 
 #[cfg(target_os = "linux")]
 fn read_wayland_clipboard_default() -> Option<Vec<u8>> {
-    let output = Command::new("wl-paste").output().ok()?;
-    if !output.status.success() {
-        return None;
-    }
-
-    Some(output.stdout)
-}
-
-#[cfg(target_os = "linux")]
-fn read_wayland_clipboard_with_type(mime_type: &str) -> Option<Vec<u8>> {
     let output = Command::new("wl-paste")
-        .args(wayland_paste_args(Some(mime_type)))
+        .args(wayland_paste_args(None, true))
         .output()
         .ok()?;
     if !output.status.success() {
@@ -234,10 +224,36 @@ fn read_wayland_clipboard_with_type(mime_type: &str) -> Option<Vec<u8>> {
 }
 
 #[cfg(target_os = "linux")]
-fn wayland_paste_args(mime_type: Option<&str>) -> Vec<&str> {
+fn read_wayland_clipboard_with_type(mime_type: &str) -> Option<Vec<u8>> {
+    let output = Command::new("wl-paste")
+        .args(wayland_paste_args(
+            Some(mime_type),
+            mime_type.starts_with("text/"),
+        ))
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+
+    Some(output.stdout)
+}
+
+#[cfg(target_os = "linux")]
+fn wayland_paste_args(mime_type: Option<&str>, no_newline: bool) -> Vec<&str> {
+    let mut args = Vec::new();
+
+    if no_newline {
+        args.push("--no-newline");
+    }
+
     match mime_type {
-        Some(mime_type) => vec!["--type", mime_type],
-        None => Vec::new(),
+        Some(mime_type) => {
+            args.push("--type");
+            args.push(mime_type);
+            args
+        }
+        None => args,
     }
 }
 
@@ -378,8 +394,23 @@ mod tests {
     #[test]
     fn wayland_clipboard_snapshot_reads_preserve_trailing_newlines() {
         assert_eq!(
-            wayland_paste_args(Some("text/plain")),
-            vec!["--type", "text/plain"]
+            wayland_paste_args(Some("text/plain"), true),
+            vec!["--no-newline", "--type", "text/plain"]
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn wayland_default_clipboard_reads_use_no_newline() {
+        assert_eq!(wayland_paste_args(None, true), vec!["--no-newline"]);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn wayland_non_text_clipboard_reads_skip_no_newline() {
+        assert_eq!(
+            wayland_paste_args(Some("image/png"), false),
+            vec!["--type", "image/png"]
         );
     }
 

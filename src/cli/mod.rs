@@ -33,7 +33,7 @@ pub fn run() -> Result<(), AppError> {
         AppAction::Autofill => None,
     };
 
-    let autofill = build_autofill_backend(config.action, &config.autofill_backend)?;
+    let autofill = build_autofill_backend(&config.autofill_backend)?;
 
     let outcome = run_flow(
         menu.as_ref(),
@@ -55,34 +55,27 @@ pub fn run() -> Result<(), AppError> {
 }
 
 fn build_autofill_backend(
-    action: AppAction,
     backend_name: &str,
 ) -> Result<Option<Box<dyn crate::core::AutofillBackend>>, AppError> {
-    let backend = backends::autofill::build(backend_name)?;
-
-    if matches!(action, AppAction::Autofill) {
-        Ok(Some(backend))
-    } else {
-        Ok(None)
-    }
+    Ok(Some(backends::autofill::build(backend_name)?))
 }
 
 #[cfg(test)]
 mod tests {
     use super::build_autofill_backend;
-    use crate::core::{AppAction, AppError};
+    use crate::core::AppError;
 
     #[test]
-    fn copy_mode_validates_backend_but_disables_fill() {
-        let backend = build_autofill_backend(AppAction::Copy, "wtype")
-            .expect("copy mode should still validate valid backend names");
+    fn copy_mode_keeps_autofill_backend_available_for_fill() {
+        let backend =
+            build_autofill_backend("wtype").expect("copy mode should validate valid backend names");
 
-        assert!(backend.is_none());
+        assert!(backend.is_some());
     }
 
     #[test]
     fn copy_mode_reports_invalid_autofill_backend() {
-        let error = match build_autofill_backend(AppAction::Copy, "wtpye") {
+        let error = match build_autofill_backend("wtpye") {
             Ok(_) => panic!("invalid backend should surface even in copy mode"),
             Err(error) => error,
         };
@@ -95,7 +88,7 @@ mod tests {
 
     #[test]
     fn autofill_mode_reports_invalid_autofill_backend() {
-        let error = match build_autofill_backend(AppAction::Autofill, "wtpye") {
+        let error = match build_autofill_backend("wtpye") {
             Ok(_) => panic!("invalid backend should surface in autofill mode"),
             Err(error) => error,
         };
