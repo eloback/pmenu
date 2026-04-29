@@ -167,28 +167,22 @@ fn snapshot_wayland_clipboard() -> Option<ClipboardSnapshot> {
 
 #[cfg(target_os = "linux")]
 fn clipboard_snapshot_kind(raw_types: &str) -> Option<ClipboardSnapshotKind> {
-    let mut mime_types = raw_types.lines().map(str::trim).filter(|line| !line.is_empty());
-    let first = mime_types.next();
+    let mime_types: Vec<&str> = raw_types.lines().map(str::trim).filter(|line| !line.is_empty()).collect();
 
-    match first {
-        None => Some(ClipboardSnapshotKind::Empty),
-        Some("text/plain;charset=utf-8") => {
-            Some(ClipboardSnapshotKind::Text("text/plain;charset=utf-8".to_string()))
-        }
-        Some(other) if other.starts_with("text/") => {
-            Some(ClipboardSnapshotKind::Text(other.to_string()))
-        }
-        Some(other) => mime_types
-            .find(|mime_type| *mime_type == "text/plain;charset=utf-8" || mime_type.starts_with("text/"))
-            .map(|mime_type| ClipboardSnapshotKind::Text(mime_type.to_string()))
-            .or({
-                if other == "text/plain" {
-                    Some(ClipboardSnapshotKind::Text(other.to_string()))
-                } else {
-                    None
-                }
-            }),
+    if mime_types.is_empty() {
+        return Some(ClipboardSnapshotKind::Empty);
     }
+
+    for preferred in ["text/plain;charset=utf-8", "text/plain"] {
+        if mime_types.contains(&preferred) {
+            return Some(ClipboardSnapshotKind::Text(preferred.to_string()));
+        }
+    }
+
+    mime_types
+        .iter()
+        .find(|mime_type| mime_type.starts_with("text/"))
+        .map(|mime_type| ClipboardSnapshotKind::Text((*mime_type).to_string()))
 }
 
 #[cfg(target_os = "linux")]
@@ -356,6 +350,15 @@ mod tests {
             Some(ClipboardSnapshotKind::Text(
                 "text/plain;charset=utf-8".to_string()
             ))
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn prefers_plain_text_over_other_text_types() {
+        assert_eq!(
+            clipboard_snapshot_kind("text/html\ntext/plain\n"),
+            Some(ClipboardSnapshotKind::Text("text/plain".to_string()))
         );
     }
 
