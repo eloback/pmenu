@@ -24,6 +24,7 @@
           runtimeTools = with pkgs; [
             bemenu
             fuzzel
+            keepassxc
             libnotify
             pass
             passage
@@ -57,6 +58,7 @@
           runtimeTools = with pkgs; [
             bemenu
             fuzzel
+            keepassxc
             libnotify
             pass
             passage

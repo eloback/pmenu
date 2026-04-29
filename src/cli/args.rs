@@ -3,7 +3,11 @@ use clap::{Parser, ValueEnum};
 use crate::core::AppAction;
 
 #[derive(Debug, Clone, Parser)]
-#[command(name = "pmenu", version, about = "Password picker with runtime-selectable backends")]
+#[command(
+    name = "pmenu",
+    version,
+    about = "Password picker with runtime-selectable backends"
+)]
 pub struct CliArgs {
     #[arg(long, value_name = "PATH")]
     pub config: Option<String>,
@@ -16,6 +20,9 @@ pub struct CliArgs {
 
     #[arg(long, value_name = "PATH")]
     pub store_identities_file: Option<String>,
+
+    #[arg(long, value_name = "PATH")]
+    pub store_key_file: Option<String>,
 
     #[arg(long, value_name = "NAME")]
     pub menu_backend: Option<String>,

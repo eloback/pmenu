@@ -89,7 +89,10 @@ mod tests {
 
     #[test]
     fn parses_app_action() {
-        assert_eq!(AppAction::from_str("copy").expect("copy should parse"), AppAction::Copy);
+        assert_eq!(
+            AppAction::from_str("copy").expect("copy should parse"),
+            AppAction::Copy
+        );
         assert_eq!(
             AppAction::from_str("autofill").expect("autofill should parse"),
             AppAction::Autofill

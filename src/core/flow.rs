@@ -34,14 +34,22 @@ pub fn run_flow(
             let clipboard = clipboard.ok_or_else(|| {
                 AppError::Config("Clipboard backend is required for copy actions.".to_string())
             })?;
-            trace!(field = field_name, value_len = value.len(), "copying selected value");
+            trace!(
+                field = field_name,
+                value_len = value.len(),
+                "copying selected value"
+            );
             clipboard.copy(value)?;
         }
         AppAction::Autofill => {
             let autofill = autofill.ok_or_else(|| {
                 AppError::Config("Autofill backend is required for autofill actions.".to_string())
             })?;
-            trace!(field = field_name, value_len = value.len(), "autofilling selected value");
+            trace!(
+                field = field_name,
+                value_len = value.len(),
+                "autofilling selected value"
+            );
             autofill.autofill(value)?;
         }
     }
@@ -61,7 +69,8 @@ fn selected_value<'a>(entry: &'a EntryContent, field_name: &str) -> Result<&'a s
         return Ok(entry.password.as_str());
     }
 
-    entry.fields
+    entry
+        .fields
         .iter()
         .find(|(name, _)| name == field_name)
         .map(|(_, value)| value.as_str())
@@ -140,15 +149,9 @@ mod tests {
         let store = StubStore;
         let clipboard = StubClipboard(RefCell::new(Vec::new()));
 
-        let outcome = run_flow(
-            &menu,
-            &store,
-            Some(&clipboard),
-            None,
-            AppAction::Copy,
-        )
-        .expect("flow should succeed")
-        .expect("selection should complete");
+        let outcome = run_flow(&menu, &store, Some(&clipboard), None, AppAction::Copy)
+            .expect("flow should succeed")
+            .expect("selection should complete");
 
         assert_eq!(outcome.field_name, "password");
         assert_eq!(clipboard.0.borrow().as_slice(), ["secret"]);
@@ -160,15 +163,9 @@ mod tests {
         let store = StubStore;
         let autofill = StubAutofill(RefCell::new(Vec::new()));
 
-        let outcome = run_flow(
-            &menu,
-            &store,
-            None,
-            Some(&autofill),
-            AppAction::Autofill,
-        )
-        .expect("flow should succeed")
-        .expect("selection should complete");
+        let outcome = run_flow(&menu, &store, None, Some(&autofill), AppAction::Autofill)
+            .expect("flow should succeed")
+            .expect("selection should complete");
 
         assert_eq!(outcome.field_name, "username");
         assert_eq!(autofill.0.borrow().as_slice(), ["demo"]);

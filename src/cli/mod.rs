@@ -21,6 +21,7 @@ pub fn run() -> Result<(), AppError> {
         &config.store_backend,
         config.store_path.clone(),
         config.store_identities_file.clone(),
+        config.store_key_file.clone(),
     )?;
 
     let clipboard = match config.action {
