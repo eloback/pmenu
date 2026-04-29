@@ -34,14 +34,7 @@ pub fn run() -> Result<(), AppError> {
         AppAction::Autofill => None,
     };
 
-    let autofill = match backends::autofill::build(&config.autofill_backend) {
-        Ok(backend) => Some(backend),
-        Err(error) if matches!(config.action, AppAction::Copy) => {
-            trace!(?error, "autofill backend unavailable; disabling fill option");
-            None
-        }
-        Err(error) => return Err(error),
-    };
+    let autofill = build_autofill_backend(config.action, &config.autofill_backend)?;
 
     let outcome = run_flow(
         menu.as_ref(),
@@ -60,4 +53,57 @@ pub fn run() -> Result<(), AppError> {
     }
 
     Ok(())
+}
+
+fn build_autofill_backend(
+    action: AppAction,
+    backend_name: &str,
+) -> Result<Option<Box<dyn crate::core::AutofillBackend>>, AppError> {
+    let backend = backends::autofill::build(backend_name)?;
+
+    if matches!(action, AppAction::Autofill) {
+        Ok(Some(backend))
+    } else {
+        Ok(None)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::build_autofill_backend;
+    use crate::core::{AppAction, AppError};
+
+    #[test]
+    fn copy_mode_validates_backend_but_disables_fill() {
+        let backend = build_autofill_backend(AppAction::Copy, "wtype")
+            .expect("copy mode should still validate valid backend names");
+
+        assert!(backend.is_none());
+    }
+
+    #[test]
+    fn copy_mode_reports_invalid_autofill_backend() {
+        let error = match build_autofill_backend(AppAction::Copy, "wtpye") {
+            Ok(_) => panic!("invalid backend should surface even in copy mode"),
+            Err(error) => error,
+        };
+
+        assert!(matches!(
+            error,
+            AppError::Config(message) if message == "Unknown autofill backend: wtpye"
+        ));
+    }
+
+    #[test]
+    fn autofill_mode_reports_invalid_autofill_backend() {
+        let error = match build_autofill_backend(AppAction::Autofill, "wtpye") {
+            Ok(_) => panic!("invalid backend should surface in autofill mode"),
+            Err(error) => error,
+        };
+
+        assert!(matches!(
+            error,
+            AppError::Config(message) if message == "Unknown autofill backend: wtpye"
+        ));
+    }
 }
