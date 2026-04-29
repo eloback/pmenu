@@ -2,6 +2,7 @@ use super::{
     ActionOutcome, AppAction, AppError, AutofillBackend, ClipboardBackend, EntryContent,
     MenuBackend, PasswordStoreBackend,
 };
+use tracing::trace;
 
 pub fn run_flow(
     menu: &dyn MenuBackend,
@@ -10,6 +11,7 @@ pub fn run_flow(
     autofill: Option<&dyn AutofillBackend>,
     action: AppAction,
 ) -> Result<Option<ActionOutcome>, AppError> {
+    trace!(?action, "starting password selection flow");
     let entries = store.list_entries()?;
     if entries.is_empty() {
         return Ok(None);
@@ -32,12 +34,14 @@ pub fn run_flow(
             let clipboard = clipboard.ok_or_else(|| {
                 AppError::Config("Clipboard backend is required for copy actions.".to_string())
             })?;
+            trace!(field = field_name, value_len = value.len(), "copying selected value");
             clipboard.copy(value)?;
         }
         AppAction::Autofill => {
             let autofill = autofill.ok_or_else(|| {
                 AppError::Config("Autofill backend is required for autofill actions.".to_string())
             })?;
+            trace!(field = field_name, value_len = value.len(), "autofilling selected value");
             autofill.autofill(value)?;
         }
     }

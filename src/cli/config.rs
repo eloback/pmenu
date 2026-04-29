@@ -259,6 +259,7 @@ backend = "fuzzel"
             clip_time: Some(12),
             action: Some(CliAction::Autofill),
             no_notify: true,
+            trace: false,
         })
         .expect("config should load");
 

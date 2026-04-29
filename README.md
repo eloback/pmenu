@@ -61,6 +61,12 @@ Trigger autofill instead of copy:
 pmenu --action autofill
 ```
 
+Enable built-in tracing:
+
+```bash
+pmenu --trace
+```
+
 ## CLI Flags
 
 - `--config <path>`
@@ -73,6 +79,7 @@ pmenu --action autofill
 - `--clip-time <seconds>`
 - `--action <copy|autofill>`
 - `--no-notify`
+- `--trace`
 
 CLI flags override config file values.
 
@@ -118,4 +125,6 @@ Defaults when no config is present:
 - `passage` stores are read from `.age` files.
 - `~` is expanded in configured paths.
 - Notifications use `notify-send` when enabled.
+- `--trace` emits detailed logs to stderr without printing secret values.
+- `RUST_LOG` can be used instead of `--trace` for custom log filtering.
 - Missing external tools fail at runtime with a clear command-specific error.

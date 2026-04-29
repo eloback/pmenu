@@ -1,15 +1,20 @@
 mod args;
 mod backends;
 mod config;
+mod logging;
 mod notify;
 
 use clap::Parser;
+use tracing::{debug, trace};
 
 use crate::core::{run_flow, AppAction, AppError};
 
 pub fn run() -> Result<(), AppError> {
     let args = args::CliArgs::parse();
+    logging::init(args.trace);
+
     let config = config::ResolvedConfig::load(args)?;
+    debug!(?config, "resolved runtime config");
 
     let menu = backends::menu::build(&config.menu_backend)?;
     let store = backends::store::build(
@@ -38,6 +43,7 @@ pub fn run() -> Result<(), AppError> {
         autofill.as_deref(),
         config.action,
     )?;
+    trace!(completed = outcome.is_some(), "completed application flow");
 
     if let Some(outcome) = outcome {
         notify::Notifier::new(config.notify)

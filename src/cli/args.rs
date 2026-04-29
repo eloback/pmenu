@@ -34,6 +34,9 @@ pub struct CliArgs {
 
     #[arg(long)]
     pub no_notify: bool,
+
+    #[arg(long)]
+    pub trace: bool,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]

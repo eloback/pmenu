@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use crate::core::{parse_entry_content, AppError, EntryContent, PasswordStoreBackend};
+use tracing::{debug, trace};
 
 pub fn build(
     name: &str,
@@ -31,18 +32,30 @@ impl PassStore {
 
 impl PasswordStoreBackend for PassStore {
     fn list_entries(&self) -> Result<Vec<String>, AppError> {
+        trace!(store_dir = %self.store_dir.display(), "listing pass entries");
         list_entries_with_extension(&self.store_dir, ".gpg")
     }
 
     fn show_entry(&self, entry: &str) -> Result<EntryContent, AppError> {
+        let args = pass_show_args(entry);
+        debug!(entry, store_dir = %self.store_dir.display(), "running pass show");
+
         let output = base_pass_command(&self.store_dir)
-            .args(pass_show_args(entry))
+            .args(&args)
             .output()
             .map_err(|error| command_error("pass", error))?;
+        debug!(
+            entry,
+            success = output.status.success(),
+            code = output.status.code(),
+            stdout_len = output.stdout.len(),
+            stderr_len = output.stderr.len(),
+            "pass show finished"
+        );
 
         if !output.status.success() {
             return Err(AppError::CommandFailed {
-                command: format!("pass {}", pass_show_args(entry).join(" ")),
+                command: format!("pass {}", args.join(" ")),
                 code: output.status.code(),
                 stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
             });
@@ -69,6 +82,7 @@ impl PassageStore {
 
 impl PasswordStoreBackend for PassageStore {
     fn list_entries(&self) -> Result<Vec<String>, AppError> {
+        trace!(store_dir = %self.store_dir.display(), "listing passage entries");
         list_entries_with_extension(&self.store_dir, ".age")
     }
 
@@ -77,15 +91,30 @@ impl PasswordStoreBackend for PassageStore {
         if let Some(identities_file) = &self.identities_file {
             command.env("PASSAGE_IDENTITIES_FILE", identities_file);
         }
+        let args = passage_show_args(entry);
+        debug!(
+            entry,
+            store_dir = %self.store_dir.display(),
+            identities_file = self.identities_file.as_ref().map(|path| path.display().to_string()),
+            "running passage show"
+        );
 
         let output = command
-            .args(passage_show_args(entry))
+            .args(&args)
             .output()
             .map_err(|error| command_error("passage", error))?;
+        debug!(
+            entry,
+            success = output.status.success(),
+            code = output.status.code(),
+            stdout_len = output.stdout.len(),
+            stderr_len = output.stderr.len(),
+            "passage show finished"
+        );
 
         if !output.status.success() {
             return Err(AppError::CommandFailed {
-                command: format!("passage {}", passage_show_args(entry).join(" ")),
+                command: format!("passage {}", args.join(" ")),
                 code: output.status.code(),
                 stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
             });
@@ -99,6 +128,12 @@ fn list_entries_with_extension(store_dir: &Path, extension: &str) -> Result<Vec<
     let mut entries = Vec::new();
     collect_entries(store_dir, store_dir, extension, &mut entries)?;
     entries.sort();
+    debug!(
+        store_dir = %store_dir.display(),
+        extension,
+        entry_count = entries.len(),
+        "listed password store entries"
+    );
     Ok(entries)
 }
 
