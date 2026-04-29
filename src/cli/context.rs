@@ -133,7 +133,7 @@ where
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum ClipboardSnapshot {
     Empty,
-    Text {
+    Data {
         mime_type: String,
         contents: Vec<u8>,
     },
@@ -143,7 +143,7 @@ enum ClipboardSnapshot {
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum ClipboardSnapshotKind {
     Empty,
-    Text(String),
+    MimeType(String),
 }
 
 #[cfg(target_os = "linux")]
@@ -158,7 +158,7 @@ fn snapshot_wayland_clipboard() -> Option<ClipboardSnapshot> {
 
     match clipboard_snapshot_kind(&String::from_utf8_lossy(&output.stdout))? {
         ClipboardSnapshotKind::Empty => Some(ClipboardSnapshot::Empty),
-        ClipboardSnapshotKind::Text(mime_type) => Some(ClipboardSnapshot::Text {
+        ClipboardSnapshotKind::MimeType(mime_type) => Some(ClipboardSnapshot::Data {
             contents: read_wayland_clipboard_with_type(&mime_type)?,
             mime_type,
         }),
@@ -175,14 +175,17 @@ fn clipboard_snapshot_kind(raw_types: &str) -> Option<ClipboardSnapshotKind> {
 
     for preferred in ["text/plain;charset=utf-8", "text/plain"] {
         if mime_types.contains(&preferred) {
-            return Some(ClipboardSnapshotKind::Text(preferred.to_string()));
+            return Some(ClipboardSnapshotKind::MimeType(preferred.to_string()));
         }
     }
 
+    if let Some(mime_type) = mime_types.iter().find(|mime_type| mime_type.starts_with("text/")) {
+        return Some(ClipboardSnapshotKind::MimeType((*mime_type).to_string()));
+    }
+
     mime_types
-        .iter()
-        .find(|mime_type| mime_type.starts_with("text/"))
-        .map(|mime_type| ClipboardSnapshotKind::Text((*mime_type).to_string()))
+        .first()
+        .map(|mime_type| ClipboardSnapshotKind::MimeType((*mime_type).to_string()))
 }
 
 #[cfg(target_os = "linux")]
@@ -244,7 +247,7 @@ fn restore_wayland_clipboard(snapshot: &ClipboardSnapshot) -> bool {
             .stderr(Stdio::null())
             .status()
             .is_ok_and(|status| status.success()),
-        ClipboardSnapshot::Text {
+        ClipboardSnapshot::Data {
             mime_type,
             contents,
         } => write_wayland_clipboard(mime_type, contents),
@@ -353,7 +356,7 @@ mod tests {
     fn detects_text_wayland_clipboard_snapshot() {
         assert_eq!(
             clipboard_snapshot_kind("image/png\ntext/plain;charset=utf-8\n"),
-            Some(ClipboardSnapshotKind::Text(
+            Some(ClipboardSnapshotKind::MimeType(
                 "text/plain;charset=utf-8".to_string()
             ))
         );
@@ -364,7 +367,7 @@ mod tests {
     fn prefers_plain_text_over_other_text_types() {
         assert_eq!(
             clipboard_snapshot_kind("text/html\ntext/plain\n"),
-            Some(ClipboardSnapshotKind::Text("text/plain".to_string()))
+            Some(ClipboardSnapshotKind::MimeType("text/plain".to_string()))
         );
     }
 
@@ -374,6 +377,15 @@ mod tests {
         assert_eq!(
             wayland_paste_args(Some("text/plain")),
             vec!["--type", "text/plain"]
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn preserves_non_text_clipboard_types() {
+        assert_eq!(
+            clipboard_snapshot_kind("image/png\napplication/octet-stream\n"),
+            Some(ClipboardSnapshotKind::MimeType("image/png".to_string()))
         );
     }
 
@@ -427,7 +439,7 @@ mod tests {
 
         let result = qutebrowser_query_with(
             || {
-                Some(ClipboardSnapshot::Text {
+                Some(ClipboardSnapshot::Data {
                     mime_type: "text/plain;charset=utf-8".to_string(),
                     contents: b"keep me".to_vec(),
                 })
@@ -441,6 +453,30 @@ mod tests {
         );
 
         assert_eq!(result, Some("example.org".to_string()));
+        assert!(restored.get());
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn qutebrowser_query_restores_non_text_clipboard_before_returning_url() {
+        let restored = Cell::new(false);
+
+        let result = qutebrowser_query_with(
+            || {
+                Some(ClipboardSnapshot::Data {
+                    mime_type: "image/png".to_string(),
+                    contents: vec![0x89, 0x50, 0x4e, 0x47],
+                })
+            },
+            || true,
+            || Some(b"https://example.net/file".to_vec()),
+            |_| {
+                restored.set(true);
+                true
+            },
+        );
+
+        assert_eq!(result, Some("example.net".to_string()));
         assert!(restored.get());
     }
 }
