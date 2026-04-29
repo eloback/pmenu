@@ -21,9 +21,6 @@ pub struct CliArgs {
     #[arg(long, value_name = "PATH")]
     pub store_identities_file: Option<String>,
 
-    #[arg(long, value_name = "PATH")]
-    pub store_key_file: Option<String>,
-
     #[arg(long, value_name = "NAME")]
     pub menu_backend: Option<String>,
 

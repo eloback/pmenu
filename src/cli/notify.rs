@@ -15,13 +15,6 @@ impl Notifier {
             return;
         }
 
-        #[cfg(target_os = "windows")]
-        {
-            let _ = (verb, field);
-            return;
-        }
-
-        #[cfg(not(target_os = "windows"))]
         let _ = Command::new("notify-send")
             .args(["Pmenu", &format!("󰌆 {verb} {field}!"), "-t", "2000"])
             .stdin(Stdio::null())

@@ -1,6 +1,5 @@
 use std::process::{Command, Stdio};
 
-use crate::cli::backends::powershell;
 use crate::core::{AppError, MenuBackend};
 
 pub fn build(name: &str) -> Result<Box<dyn MenuBackend>, AppError> {
@@ -8,7 +7,6 @@ pub fn build(name: &str) -> Result<Box<dyn MenuBackend>, AppError> {
         "fuzzel" => Ok(Box::new(FuzzelMenu)),
         "bemenu" => Ok(Box::new(BemenuMenu)),
         "wofi" => Ok(Box::new(WofiMenu)),
-        "out-gridview" => Ok(Box::new(OutGridViewMenu)),
         _ => Err(AppError::Config(format!("Unknown menu backend: {name}"))),
     }
 }
@@ -16,7 +14,6 @@ pub fn build(name: &str) -> Result<Box<dyn MenuBackend>, AppError> {
 struct FuzzelMenu;
 struct BemenuMenu;
 struct WofiMenu;
-struct OutGridViewMenu;
 
 impl MenuBackend for FuzzelMenu {
     fn select(
@@ -48,17 +45,6 @@ impl MenuBackend for WofiMenu {
         initial_query: Option<&str>,
     ) -> Result<Option<String>, AppError> {
         run_menu_command("wofi", &wofi_args(prompt, initial_query), items)
-    }
-}
-
-impl MenuBackend for OutGridViewMenu {
-    fn select(
-        &self,
-        prompt: &str,
-        items: &[String],
-        _initial_query: Option<&str>,
-    ) -> Result<Option<String>, AppError> {
-        run_out_gridview_menu(prompt, items)
     }
 }
 
@@ -193,52 +179,6 @@ fn wofi_args(prompt: &str, initial_query: Option<&str>) -> Vec<String> {
     args
 }
 
-fn run_out_gridview_menu(prompt: &str, items: &[String]) -> Result<Option<String>, AppError> {
-    let script = out_gridview_script(prompt);
-    let mut child = powershell::command(&script)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(powershell::command_error)?;
-
-    if let Some(stdin) = child.stdin.as_mut() {
-        use std::io::Write;
-        for item in items {
-            stdin.write_all(item.as_bytes())?;
-            stdin.write_all(b"\n")?;
-        }
-    }
-    drop(child.stdin.take());
-
-    let output = child.wait_with_output()?;
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-
-    if output.status.success() {
-        return if stdout.is_empty() {
-            Ok(None)
-        } else {
-            Ok(Some(stdout))
-        };
-    }
-
-    Err(AppError::CommandFailed {
-        command: "powershell Out-GridView".to_string(),
-        code: output.status.code(),
-        stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
-    })
-}
-
-fn out_gridview_script(prompt: &str) -> String {
-    let prompt = powershell::escape_single_quoted(prompt);
-    format!(
-        "$items = [Console]::In.ReadToEnd() -split \"`r?`n\" | Where-Object {{ $_ -ne '' }}; \
-         if ($items.Count -eq 0) {{ exit 0 }}; \
-         $selection = $items | Out-GridView -Title '{prompt}' -OutputMode Single; \
-         if ($null -ne $selection) {{ [Console]::Out.Write($selection) }}"
-    )
-}
-
 fn command_error(program: &str, error: std::io::Error) -> AppError {
     match error.kind() {
         std::io::ErrorKind::NotFound => AppError::CommandMissing(program.to_string()),
@@ -248,7 +188,7 @@ fn command_error(program: &str, error: std::io::Error) -> AppError {
 
 #[cfg(test)]
 mod tests {
-    use super::{bemenu_args, fuzzel_args, out_gridview_script, wofi_args};
+    use super::{bemenu_args, fuzzel_args, wofi_args};
 
     #[test]
     fn fuzzel_args_include_prompt() {
@@ -269,12 +209,5 @@ mod tests {
         assert!(args.contains(&"prompt".to_string()));
         assert!(args.contains(&"--search".to_string()));
         assert!(args.contains(&"example.com".to_string()));
-    }
-
-    #[test]
-    fn out_gridview_script_includes_title() {
-        let script = out_gridview_script("prompt");
-        assert!(script.contains("Out-GridView"));
-        assert!(script.contains("prompt"));
     }
 }

@@ -41,9 +41,8 @@ pub fn run_flow(
             let autofill = autofill.ok_or_else(|| {
                 AppError::Config("Autofill backend is required for fill actions.".to_string())
             })?;
-            let username = resolve_username(&entry_name, &entry).ok_or_else(|| {
-                AppError::InvalidEntry(format!("No username for {entry_name}"))
-            })?;
+            let username = resolve_username(&entry_name, &entry)
+                .ok_or_else(|| AppError::InvalidEntry(format!("No username for {entry_name}")))?;
             let password = password_value(&entry_name, &entry)?;
             trace!(
                 field = selected_option.label,
@@ -121,16 +120,19 @@ fn menu_options(entry_name: &str, entry: &EntryContent, can_fill: bool) -> Vec<M
         options.push(MenuOption::new("fill", MenuOptionKind::Fill));
     }
 
-    options.extend(entry.fields.iter().enumerate().filter_map(|(index, (name, _))| {
-        if is_builtin_field(name) {
-            None
-        } else {
-            Some(MenuOption::new(
-                name,
-                MenuOptionKind::StoredField(index),
-            ))
-        }
-    }));
+    options.extend(
+        entry
+            .fields
+            .iter()
+            .enumerate()
+            .filter_map(|(index, (name, _))| {
+                if is_builtin_field(name) {
+                    None
+                } else {
+                    Some(MenuOption::new(name, MenuOptionKind::StoredField(index)))
+                }
+            }),
+    );
 
     options
 }
@@ -199,7 +201,9 @@ fn fallback_username(entry_name: &str) -> Option<String> {
 }
 
 fn fallback_url(entry_name: &str) -> Option<String> {
-    path_segments(entry_name).first().map(|segment| (*segment).to_string())
+    path_segments(entry_name)
+        .first()
+        .map(|segment| (*segment).to_string())
 }
 
 fn path_segments(entry_name: &str) -> Vec<&str> {
@@ -311,9 +315,7 @@ mod tests {
         }
 
         fn autofill_login(&self, username: &str, password: &str) -> Result<(), AppError> {
-            self.0
-                .borrow_mut()
-                .push(format!("{username}\t{password}"));
+            self.0.borrow_mut().push(format!("{username}\t{password}"));
             Ok(())
         }
     }

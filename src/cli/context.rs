@@ -148,10 +148,7 @@ enum ClipboardSnapshotKind {
 
 #[cfg(target_os = "linux")]
 fn snapshot_wayland_clipboard() -> Option<ClipboardSnapshot> {
-    let output = Command::new("wl-paste")
-        .arg("--list-types")
-        .output()
-        .ok()?;
+    let output = Command::new("wl-paste").arg("--list-types").output().ok()?;
     if !output.status.success() {
         return None;
     }
@@ -167,7 +164,11 @@ fn snapshot_wayland_clipboard() -> Option<ClipboardSnapshot> {
 
 #[cfg(target_os = "linux")]
 fn clipboard_snapshot_kind(raw_types: &str) -> Option<ClipboardSnapshotKind> {
-    let mime_types: Vec<&str> = raw_types.lines().map(str::trim).filter(|line| !line.is_empty()).collect();
+    let mime_types: Vec<&str> = raw_types
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect();
 
     if mime_types.is_empty() {
         return Some(ClipboardSnapshotKind::Empty);
@@ -179,7 +180,10 @@ fn clipboard_snapshot_kind(raw_types: &str) -> Option<ClipboardSnapshotKind> {
         }
     }
 
-    if let Some(mime_type) = mime_types.iter().find(|mime_type| mime_type.starts_with("text/")) {
+    if let Some(mime_type) = mime_types
+        .iter()
+        .find(|mime_type| mime_type.starts_with("text/"))
+    {
         return Some(ClipboardSnapshotKind::MimeType((*mime_type).to_string()));
     }
 
@@ -303,8 +307,7 @@ mod tests {
     #[cfg(target_os = "linux")]
     use super::{
         clipboard_snapshot_kind, focused_sway_class, host_query, qutebrowser_query_with,
-        wayland_paste_args,
-        ClipboardSnapshot, ClipboardSnapshotKind,
+        wayland_paste_args, ClipboardSnapshot, ClipboardSnapshotKind,
     };
     #[cfg(target_os = "linux")]
     use serde_json::json;

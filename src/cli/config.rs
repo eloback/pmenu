@@ -14,7 +14,6 @@ pub struct ResolvedConfig {
     pub store_backend: String,
     pub store_path: Option<PathBuf>,
     pub store_identities_file: Option<PathBuf>,
-    pub store_key_file: Option<PathBuf>,
     pub menu_backend: String,
     pub clipboard_backend: String,
     pub autofill_backend: String,
@@ -27,13 +26,12 @@ pub struct ResolvedConfig {
 impl Default for ResolvedConfig {
     fn default() -> Self {
         Self {
-            store_backend: default_store_backend().to_string(),
+            store_backend: "passage".to_string(),
             store_path: None,
             store_identities_file: None,
-            store_key_file: None,
-            menu_backend: default_menu_backend().to_string(),
-            clipboard_backend: default_clipboard_backend().to_string(),
-            autofill_backend: default_autofill_backend().to_string(),
+            menu_backend: "wofi".to_string(),
+            clipboard_backend: "wl-clipboard".to_string(),
+            autofill_backend: "wtype".to_string(),
             clip_time_secs: DEFAULT_CLIP_TIME_SECS,
             action: AppAction::Copy,
             field: None,
@@ -69,12 +67,6 @@ impl ResolvedConfig {
             }
             if let Some(identities_file) = store.identities_file {
                 self.store_identities_file = Some(expand_tilde(&identities_file)?);
-            }
-            if let Some(key_file) = store.key_file {
-                self.store_key_file = Some(expand_tilde(&key_file)?);
-            }
-            if let Some(database_path) = store.database_path {
-                self.store_path = Some(expand_tilde(&database_path)?);
             }
         }
 
@@ -120,9 +112,6 @@ impl ResolvedConfig {
         if let Some(identities_file) = args.store_identities_file {
             self.store_identities_file = Some(expand_tilde(&identities_file)?);
         }
-        if let Some(key_file) = args.store_key_file {
-            self.store_key_file = Some(expand_tilde(&key_file)?);
-        }
         if let Some(backend) = args.menu_backend {
             self.menu_backend = normalize_backend_name(&backend);
         }
@@ -164,8 +153,6 @@ struct StoreConfig {
     backend: Option<String>,
     path: Option<String>,
     identities_file: Option<String>,
-    key_file: Option<String>,
-    database_path: Option<String>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -205,28 +192,12 @@ fn load_file_config(path: &Path, required: bool) -> Result<FileConfig, AppError>
 }
 
 fn default_config_path() -> Result<PathBuf, AppError> {
-    #[cfg(target_os = "windows")]
-    {
-        if let Some(app_data) = env::var_os("APPDATA") {
-            return Ok(PathBuf::from(app_data).join("pmenu").join("config.toml"));
-        }
-
-        return Ok(home_dir()?
-            .join("AppData")
-            .join("Roaming")
-            .join("pmenu")
-            .join("config.toml"));
+    if let Some(config_home) = env::var_os("XDG_CONFIG_HOME") {
+        return Ok(PathBuf::from(config_home).join("pmenu").join("config.toml"));
     }
 
-    #[cfg(not(target_os = "windows"))]
-    {
-        if let Some(config_home) = env::var_os("XDG_CONFIG_HOME") {
-            return Ok(PathBuf::from(config_home).join("pmenu").join("config.toml"));
-        }
-
-        let home = home_dir()?;
-        Ok(home.join(".config").join("pmenu").join("config.toml"))
-    }
+    let home = home_dir()?;
+    Ok(home.join(".config").join("pmenu").join("config.toml"))
 }
 
 fn expand_tilde(raw: &str) -> Result<PathBuf, AppError> {
@@ -246,79 +217,11 @@ fn home_dir() -> Result<PathBuf, AppError> {
         return Ok(PathBuf::from(home));
     }
 
-    #[cfg(target_os = "windows")]
-    {
-        if let Some(user_profile) = env::var_os("USERPROFILE") {
-            return Ok(PathBuf::from(user_profile));
-        }
-
-        let home_drive = env::var_os("HOMEDRIVE");
-        let home_path = env::var_os("HOMEPATH");
-        if let (Some(home_drive), Some(home_path)) = (home_drive, home_path) {
-            return Ok(PathBuf::from(home_drive).join(home_path));
-        }
-
-        Err(AppError::Config(
-            "`HOME` and Windows home directory variables are not set.".to_string(),
-        ))
-    }
-
-    #[cfg(not(target_os = "windows"))]
-    {
-        Err(AppError::Config("`HOME` is not set.".to_string()))
-    }
+    Err(AppError::Config("`HOME` is not set.".to_string()))
 }
 
 fn normalize_backend_name(value: &str) -> String {
     value.trim().to_ascii_lowercase()
-}
-
-fn default_store_backend() -> &'static str {
-    #[cfg(target_os = "windows")]
-    {
-        "keepassxc"
-    }
-
-    #[cfg(not(target_os = "windows"))]
-    {
-        "passage"
-    }
-}
-
-fn default_menu_backend() -> &'static str {
-    #[cfg(target_os = "windows")]
-    {
-        "out-gridview"
-    }
-
-    #[cfg(not(target_os = "windows"))]
-    {
-        "wofi"
-    }
-}
-
-fn default_clipboard_backend() -> &'static str {
-    #[cfg(target_os = "windows")]
-    {
-        "powershell-clipboard"
-    }
-
-    #[cfg(not(target_os = "windows"))]
-    {
-        "wl-clipboard"
-    }
-}
-
-fn default_autofill_backend() -> &'static str {
-    #[cfg(target_os = "windows")]
-    {
-        "powershell-paste"
-    }
-
-    #[cfg(not(target_os = "windows"))]
-    {
-        "wtype"
-    }
 }
 
 #[cfg(test)]
@@ -350,7 +253,6 @@ backend = "fuzzel"
             store_backend: None,
             store_path: None,
             store_identities_file: None,
-            store_key_file: None,
             menu_backend: Some("wofi".to_string()),
             clipboard_backend: None,
             autofill_backend: None,
@@ -397,44 +299,6 @@ backend = "wl-clipboard"
         let config = load_file_config(&path, true).expect("config should parse");
         assert!(config.store.is_some());
         assert!(config.clipboard.is_some());
-
-        fs::remove_file(path).expect("temp config should be removed");
-    }
-
-    #[test]
-    fn parses_keepassxc_store_fields() {
-        let path = unique_temp_path("pmenu-keepassxc-config.toml");
-        fs::write(
-            &path,
-            r#"
-[store]
-backend = "keepassxc"
-database_path = "~/Passwords.kdbx"
-key_file = "~/Passwords.keyx"
-"#,
-        )
-        .expect("config should be written");
-
-        let config = ResolvedConfig::load(CliArgs {
-            config: Some(path.to_string_lossy().into_owned()),
-            store_backend: None,
-            store_path: None,
-            store_identities_file: None,
-            store_key_file: None,
-            menu_backend: None,
-            clipboard_backend: None,
-            autofill_backend: None,
-            clip_time: None,
-            field: None,
-            action: None,
-            no_notify: false,
-            trace: false,
-        })
-        .expect("config should load");
-
-        assert_eq!(config.store_backend, "keepassxc");
-        assert!(config.store_path.is_some());
-        assert!(config.store_key_file.is_some());
 
         fs::remove_file(path).expect("temp config should be removed");
     }
