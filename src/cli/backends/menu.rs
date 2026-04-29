@@ -49,6 +49,7 @@ fn run_menu_command(program: &str, args: &[String], items: &[String]) -> Result<
             stdin.write_all(b"\n")?;
         }
     }
+    drop(child.stdin.take());
 
     let output = child.wait_with_output()?;
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
