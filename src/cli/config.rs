@@ -20,6 +20,7 @@ pub struct ResolvedConfig {
     pub autofill_backend: String,
     pub clip_time_secs: u64,
     pub action: AppAction,
+    pub field: Option<String>,
     pub notify: bool,
 }
 
@@ -35,6 +36,7 @@ impl Default for ResolvedConfig {
             autofill_backend: default_autofill_backend().to_string(),
             clip_time_secs: DEFAULT_CLIP_TIME_SECS,
             action: AppAction::Copy,
+            field: None,
             notify: true,
         }
     }
@@ -135,6 +137,9 @@ impl ResolvedConfig {
         }
         if let Some(action) = args.action {
             self.action = action.into();
+        }
+        if let Some(field) = args.field {
+            self.field = Some(field);
         }
         if args.no_notify {
             self.notify = false;
@@ -350,6 +355,7 @@ backend = "fuzzel"
             clipboard_backend: None,
             autofill_backend: None,
             clip_time: Some(12),
+            field: Some("fill".to_string()),
             action: Some(CliAction::Autofill),
             no_notify: true,
             trace: false,
@@ -360,6 +366,7 @@ backend = "fuzzel"
         assert_eq!(config.menu_backend, "wofi");
         assert_eq!(config.clip_time_secs, 12);
         assert_eq!(config.action, crate::core::AppAction::Autofill);
+        assert_eq!(config.field.as_deref(), Some("fill"));
         assert!(!config.notify);
 
         fs::remove_file(path).expect("temp config should be removed");
@@ -418,6 +425,7 @@ key_file = "~/Passwords.keyx"
             clipboard_backend: None,
             autofill_backend: None,
             clip_time: None,
+            field: None,
             action: None,
             no_notify: false,
             trace: false,

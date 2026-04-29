@@ -1,6 +1,7 @@
 mod args;
 mod backends;
 mod config;
+mod context;
 mod logging;
 mod notify;
 
@@ -15,6 +16,7 @@ pub fn run() -> Result<(), AppError> {
 
     let config = config::ResolvedConfig::load(args)?;
     debug!(?config, "resolved runtime config");
+    let initial_query = context::initial_query();
 
     let menu = backends::menu::build(&config.menu_backend)?;
     let store = backends::store::build(
@@ -32,9 +34,13 @@ pub fn run() -> Result<(), AppError> {
         AppAction::Autofill => None,
     };
 
-    let autofill = match config.action {
-        AppAction::Copy => None,
-        AppAction::Autofill => Some(backends::autofill::build(&config.autofill_backend)?),
+    let autofill = match backends::autofill::build(&config.autofill_backend) {
+        Ok(backend) => Some(backend),
+        Err(error) if matches!(config.action, AppAction::Copy) => {
+            trace!(?error, "autofill backend unavailable; disabling fill option");
+            None
+        }
+        Err(error) => return Err(error),
     };
 
     let outcome = run_flow(
@@ -43,6 +49,8 @@ pub fn run() -> Result<(), AppError> {
         clipboard.as_deref(),
         autofill.as_deref(),
         config.action,
+        initial_query.as_deref(),
+        config.field.as_deref(),
     )?;
     trace!(completed = outcome.is_some(), "completed application flow");
 

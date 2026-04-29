@@ -19,25 +19,45 @@ struct WofiMenu;
 struct OutGridViewMenu;
 
 impl MenuBackend for FuzzelMenu {
-    fn select(&self, prompt: &str, items: &[String]) -> Result<Option<String>, AppError> {
-        run_menu_command("fuzzel", &fuzzel_args(prompt), items)
+    fn select(
+        &self,
+        prompt: &str,
+        items: &[String],
+        initial_query: Option<&str>,
+    ) -> Result<Option<String>, AppError> {
+        run_menu_command("fuzzel", &fuzzel_args(prompt, initial_query), items)
     }
 }
 
 impl MenuBackend for BemenuMenu {
-    fn select(&self, prompt: &str, items: &[String]) -> Result<Option<String>, AppError> {
-        run_menu_command("bemenu", &bemenu_args(prompt), items)
+    fn select(
+        &self,
+        prompt: &str,
+        items: &[String],
+        initial_query: Option<&str>,
+    ) -> Result<Option<String>, AppError> {
+        run_menu_command("bemenu", &bemenu_args(prompt, initial_query), items)
     }
 }
 
 impl MenuBackend for WofiMenu {
-    fn select(&self, prompt: &str, items: &[String]) -> Result<Option<String>, AppError> {
-        run_menu_command("wofi", &wofi_args(prompt), items)
+    fn select(
+        &self,
+        prompt: &str,
+        items: &[String],
+        initial_query: Option<&str>,
+    ) -> Result<Option<String>, AppError> {
+        run_menu_command("wofi", &wofi_args(prompt, initial_query), items)
     }
 }
 
 impl MenuBackend for OutGridViewMenu {
-    fn select(&self, prompt: &str, items: &[String]) -> Result<Option<String>, AppError> {
+    fn select(
+        &self,
+        prompt: &str,
+        items: &[String],
+        _initial_query: Option<&str>,
+    ) -> Result<Option<String>, AppError> {
         run_out_gridview_menu(prompt, items)
     }
 }
@@ -86,7 +106,7 @@ fn run_menu_command(
     })
 }
 
-fn fuzzel_args(prompt: &str) -> Vec<String> {
+fn fuzzel_args(prompt: &str, _initial_query: Option<&str>) -> Vec<String> {
     vec![
         "--dmenu".to_string(),
         "--lines".to_string(),
@@ -116,7 +136,7 @@ fn fuzzel_args(prompt: &str) -> Vec<String> {
     ]
 }
 
-fn bemenu_args(prompt: &str) -> Vec<String> {
+fn bemenu_args(prompt: &str, _initial_query: Option<&str>) -> Vec<String> {
     vec![
         "--nb".to_string(),
         "#32302F".to_string(),
@@ -155,15 +175,22 @@ fn bemenu_args(prompt: &str) -> Vec<String> {
     ]
 }
 
-fn wofi_args(prompt: &str) -> Vec<String> {
-    vec![
+fn wofi_args(prompt: &str, initial_query: Option<&str>) -> Vec<String> {
+    let mut args = vec![
         "--dmenu".to_string(),
         "--prompt".to_string(),
         prompt.to_string(),
         "--lines".to_string(),
         "10".to_string(),
         "--insensitive".to_string(),
-    ]
+    ];
+
+    if let Some(initial_query) = initial_query.filter(|value| !value.is_empty()) {
+        args.push("--search".to_string());
+        args.push(initial_query.to_string());
+    }
+
+    args
 }
 
 fn run_out_gridview_menu(prompt: &str, items: &[String]) -> Result<Option<String>, AppError> {
@@ -225,21 +252,23 @@ mod tests {
 
     #[test]
     fn fuzzel_args_include_prompt() {
-        let args = fuzzel_args("prompt");
+        let args = fuzzel_args("prompt", None);
         assert!(args.ends_with(&["--prompt".to_string(), "prompt".to_string()]));
     }
 
     #[test]
     fn bemenu_args_include_prompt() {
-        let args = bemenu_args("prompt");
+        let args = bemenu_args("prompt", None);
         assert!(args.contains(&"prompt".to_string()));
     }
 
     #[test]
     fn wofi_args_include_dmenu_mode() {
-        let args = wofi_args("prompt");
+        let args = wofi_args("prompt", Some("example.com"));
         assert!(args.contains(&"--dmenu".to_string()));
         assert!(args.contains(&"prompt".to_string()));
+        assert!(args.contains(&"--search".to_string()));
+        assert!(args.contains(&"example.com".to_string()));
     }
 
     #[test]

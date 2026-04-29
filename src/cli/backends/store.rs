@@ -256,11 +256,11 @@ fn collect_entries(
     for entry in fs::read_dir(current)? {
         let entry = entry?;
         let path = entry.path();
+        if is_hidden_name(&entry.file_name()) {
+            continue;
+        }
 
         if path.is_dir() {
-            if entry.file_name() == ".git" {
-                continue;
-            }
             collect_entries(root, &path, extension, entries)?;
             continue;
         }
@@ -283,6 +283,10 @@ fn collect_entries(
     }
 
     Ok(())
+}
+
+fn is_hidden_name(name: &std::ffi::OsStr) -> bool {
+    name.to_str().is_some_and(|value| value.starts_with('.'))
 }
 
 fn base_pass_command(store_dir: &Path) -> Command {
@@ -466,6 +470,22 @@ mod tests {
             list_entries_with_extension(&store_dir, ".age").expect("entries should list");
         entries.sort();
         assert_eq!(entries, vec!["nested/login".to_string(), "top".to_string()]);
+
+        fs::remove_dir_all(store_dir).expect("temp dir should be removed");
+    }
+
+    #[test]
+    fn skips_hidden_files_and_directories() {
+        let store_dir = unique_temp_dir("pmenu-store-hidden-test");
+        fs::create_dir_all(store_dir.join(".hidden")).expect("hidden dir should be created");
+        fs::create_dir_all(store_dir.join("visible")).expect("visible dir should be created");
+        fs::write(store_dir.join(".ignored.age"), b"secret").expect("file should be written");
+        fs::write(store_dir.join(".hidden/login.age"), b"secret").expect("file should be written");
+        fs::write(store_dir.join("visible/login.age"), b"secret").expect("file should be written");
+
+        let entries =
+            list_entries_with_extension(&store_dir, ".age").expect("entries should list");
+        assert_eq!(entries, vec!["visible/login".to_string()]);
 
         fs::remove_dir_all(store_dir).expect("temp dir should be removed");
     }

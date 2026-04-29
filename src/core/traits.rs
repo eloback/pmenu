@@ -1,7 +1,12 @@
 use super::{AppError, EntryContent};
 
 pub trait MenuBackend {
-    fn select(&self, prompt: &str, items: &[String]) -> Result<Option<String>, AppError>;
+    fn select(
+        &self,
+        prompt: &str,
+        items: &[String],
+        initial_query: Option<&str>,
+    ) -> Result<Option<String>, AppError>;
 }
 
 pub trait PasswordStoreBackend {
@@ -15,4 +20,5 @@ pub trait ClipboardBackend {
 
 pub trait AutofillBackend {
     fn autofill(&self, value: &str) -> Result<(), AppError>;
+    fn autofill_login(&self, username: &str, password: &str) -> Result<(), AppError>;
 }

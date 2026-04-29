@@ -36,6 +36,9 @@ pub struct CliArgs {
     #[arg(long, value_name = "SECONDS")]
     pub clip_time: Option<u64>,
 
+    #[arg(long, value_name = "NAME")]
+    pub field: Option<String>,
+
     #[arg(long, value_enum)]
     pub action: Option<CliAction>,
 

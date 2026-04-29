@@ -12,6 +12,8 @@ It compiles a single binary and selects concrete implementations for menu, passw
 - Autofill backends: `wtype`, `powershell-paste`
 - Config file support with CLI override precedence
 - Reusable `core` library with backend traits and flow orchestration
+- Built-in `password`, `username`, `url`, and `fill` selections
+- Best-effort context-aware initial search for qutebrowser, Discord, and Steam on Linux
 
 ## Project Layout
 
@@ -61,6 +63,12 @@ Trigger autofill instead of copy:
 pmenu --action autofill
 ```
 
+Select a field directly without opening the second menu:
+
+```bash
+pmenu --field fill
+```
+
 Enable built-in tracing:
 
 ```bash
@@ -78,6 +86,7 @@ pmenu --trace
 - `--clipboard-backend <name>`
 - `--autofill-backend <name>`
 - `--clip-time <seconds>`
+- `--field <name>`
 - `--action <copy|autofill>`
 - `--no-notify`
 - `--trace`
@@ -153,6 +162,10 @@ Defaults when no config is present on Windows:
 - `pass` stores are read from `.gpg` files.
 - `passage` stores are read from `.age` files.
 - `keepassxc` stores are read from a configured `.kdbx` database through `keepassxc-cli`.
+- File-based stores skip hidden files and directories.
+- The picker exposes built-in `username` and `url` fields derived from entry metadata or the entry path.
+- The `fill` option types username, then tab, then password when an autofill backend is available.
+- On Linux, `wofi` can open with an initial search based on the focused app; qutebrowser, Discord, and Steam are recognized.
 - `~` is expanded in configured paths.
 - `store.path` and `store.database_path` are interchangeable for `keepassxc`; `store.database_path` is clearer.
 - Notifications use `notify-send` on Linux when enabled.
