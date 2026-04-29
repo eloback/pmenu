@@ -205,10 +205,7 @@ fn read_wayland_clipboard() -> Option<Vec<u8>> {
 
 #[cfg(target_os = "linux")]
 fn read_wayland_clipboard_default() -> Option<Vec<u8>> {
-    let output = Command::new("wl-paste")
-        .arg("--no-newline")
-        .output()
-        .ok()?;
+    let output = Command::new("wl-paste").output().ok()?;
     if !output.status.success() {
         return None;
     }
@@ -219,7 +216,7 @@ fn read_wayland_clipboard_default() -> Option<Vec<u8>> {
 #[cfg(target_os = "linux")]
 fn read_wayland_clipboard_with_type(mime_type: &str) -> Option<Vec<u8>> {
     let output = Command::new("wl-paste")
-        .args(["--no-newline", "--type", mime_type])
+        .args(wayland_paste_args(Some(mime_type)))
         .output()
         .ok()?;
     if !output.status.success() {
@@ -227,6 +224,14 @@ fn read_wayland_clipboard_with_type(mime_type: &str) -> Option<Vec<u8>> {
     }
 
     Some(output.stdout)
+}
+
+#[cfg(target_os = "linux")]
+fn wayland_paste_args(mime_type: Option<&str>) -> Vec<&str> {
+    match mime_type {
+        Some(mime_type) => vec!["--type", mime_type],
+        None => Vec::new(),
+    }
 }
 
 #[cfg(target_os = "linux")]
@@ -295,6 +300,7 @@ mod tests {
     #[cfg(target_os = "linux")]
     use super::{
         clipboard_snapshot_kind, focused_sway_class, host_query, qutebrowser_query_with,
+        wayland_paste_args,
         ClipboardSnapshot, ClipboardSnapshotKind,
     };
     #[cfg(target_os = "linux")]
@@ -359,6 +365,15 @@ mod tests {
         assert_eq!(
             clipboard_snapshot_kind("text/html\ntext/plain\n"),
             Some(ClipboardSnapshotKind::Text("text/plain".to_string()))
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn wayland_clipboard_snapshot_reads_preserve_trailing_newlines() {
+        assert_eq!(
+            wayland_paste_args(Some("text/plain")),
+            vec!["--type", "text/plain"]
         );
     }
 
