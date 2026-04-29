@@ -36,7 +36,7 @@ impl AutofillBackend for WtypeAutofillBackend {
 
     fn autofill_login(&self, username: &str, password: &str) -> Result<(), AppError> {
         for (program, args) in wtype_login_commands(username, password) {
-            let command = format!("{program} {}", args.join(" ")).trim().to_string();
+            let command = redacted_wtype_login_command(program, &args);
             let output = Command::new(program)
                 .args(&args)
                 .output()
@@ -172,6 +172,13 @@ fn wtype_login_commands<'a>(username: &'a str, password: &'a str) -> [(&'static 
     ]
 }
 
+fn redacted_wtype_login_command(program: &str, args: &[&str]) -> String {
+    match args {
+        ["-k", "tab"] => format!("{program} -k tab"),
+        _ => format!("{program} <value>"),
+    }
+}
+
 fn command_error(program: &str, error: std::io::Error) -> AppError {
     match error.kind() {
         std::io::ErrorKind::NotFound => AppError::CommandMissing(program.to_string()),
@@ -181,7 +188,10 @@ fn command_error(program: &str, error: std::io::Error) -> AppError {
 
 #[cfg(test)]
 mod tests {
-    use super::{powershell_autofill_login_script, powershell_autofill_script, wtype_login_commands};
+    use super::{
+        powershell_autofill_login_script, powershell_autofill_script,
+        redacted_wtype_login_command, wtype_login_commands,
+    };
 
     #[test]
     fn powershell_autofill_script_uses_sendkeys_and_restores_clipboard() {
@@ -205,5 +215,21 @@ mod tests {
         assert_eq!(commands[0], ("wtype", vec!["demo"]));
         assert_eq!(commands[1], ("wtype", vec!["-k", "tab"]));
         assert_eq!(commands[2], ("wtype", vec!["secret"]));
+    }
+
+    #[test]
+    fn redacts_wtype_login_command_values() {
+        assert_eq!(
+            redacted_wtype_login_command("wtype", &["demo"]),
+            "wtype <value>"
+        );
+        assert_eq!(
+            redacted_wtype_login_command("wtype", &["secret"]),
+            "wtype <value>"
+        );
+        assert_eq!(
+            redacted_wtype_login_command("wtype", &["-k", "tab"]),
+            "wtype -k tab"
+        );
     }
 }
